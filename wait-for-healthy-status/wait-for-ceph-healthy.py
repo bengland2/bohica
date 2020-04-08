@@ -3,6 +3,10 @@
 import subprocess
 import logging
 import cherrypy
+import json
+
+timeout = 3600
+poll_rate = 5.
 
 stdout_log = open('/tmp/wait-for-healthy.log', 'w')
 
@@ -11,14 +15,26 @@ logger = logging.getLogger('wait_healthy')
 class WaitForHealthy(object):
     @cherrypy.expose
     def index(self):
-        try:
-            result = subprocess.check_output(
-                ["/bin/sh", "wait-for-ceph-healthy.sh"])
-        except subprocess.CalledProcessError as e:
-            logger.error('ceph cluster did not get healthy')
-            logger.exception(e)
-            return 'FAIL'
-        logger.info(result)
+        wait_time = 0.
+        while wait_time < timeout:
+            try:
+                result = subprocess.check_output(
+                    ["/bin/sh", "./wait-for-ceph-healthy.sh"])
+                with open('/tmp/status.json') as f:
+                    s = json.load(f)
+                    overall = s['health']['status'] 
+                    if overall == 'HEALTH_OK':
+                        break
+                    logger.warn('health status %s' % overall)
+            except subprocess.CalledProcessError as e:
+                logger.error('could not get ceph status')
+                logger.exception(e)
+                return 'FAIL'
+            if result != '':
+                logger.info(result)
+            time.sleep(poll-rate)
+            wait_time += poll_rate
+            logger.info('waited %f sec' % wait_time)
         return 'SUCCESS'
 
 if __name__ == '__main__':
