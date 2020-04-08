@@ -1,6 +1,5 @@
 FROM rook/ceph:master
 USER root
-RUN yum install -y git python3-cherrypy
-RUN git clone https://github.com/cloud-bulldozer/bohica
-RUN mkdir -p /opt/bohica/
-COPY . /opt/bohica/
+RUN yum install -y git python2-cherrypy
+RUN mkdir -p /opt/bohica
+COPY wait-for-healthy-status/ /opt/bohica/
