@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wait-for-ceph-healthy
-  namespace: my-ripsaw
+  namespace: openshift-storage
   labels:
     app: wait-for-ceph-healthy
 spec:
@@ -19,9 +19,9 @@ spec:
       containers:
       - name: wait-for-ceph-healthy
         image: quay.io/bengland2/wait-for-healthy-status:debug
-        command: ["/tini"]
-        args: ["cd /opt/bohica/wait-for-ceph-healthy ; python3 wait-for-ceph-healthy.py"]
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        command: ["/bin/sh"]
+        args: ["-c", "cd /opt/bohica && ls -l && python ./wait-for-ceph-healthy.py"]
         env:
           - name: ROOK_ADMIN_SECRET
             valueFrom:
