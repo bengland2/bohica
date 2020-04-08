@@ -19,19 +19,18 @@ class WaitForHealthy(object):
         while wait_time < timeout:
             try:
                 result = subprocess.check_output(
-                    ["/bin/sh", "./wait-for-ceph-healthy.sh"])
-                with open('/tmp/status.json') as f:
-                    s = json.load(f)
-                    overall = s['health']['status'] 
-                    if overall == 'HEALTH_OK':
-                        break
-                    logger.warn('health status %s' % overall)
+                    ["ceph", "-f", "json", "status"])
+                s = json.loads(result)
+                overall = s['health']['status'] 
+                if overall == 'HEALTH_OK':
+                    break
+                logger.warn('health status %s' % overall)
             except subprocess.CalledProcessError as e:
                 logger.error('could not get ceph status')
                 logger.exception(e)
                 return 'FAIL'
             if result != '':
-                logger.info(result)
+                logger.info(json.dumps(result['health']))
             time.sleep(poll-rate)
             wait_time += poll_rate
             logger.info('waited %f sec' % wait_time)
