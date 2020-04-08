@@ -1,4 +1,4 @@
-FROM fedora:31
+FROM rook/ceph:master
 USER root
 RUN yum install -y git python3-cherrypy
 RUN git clone https://github.com/cloud-bulldozer/bohica
