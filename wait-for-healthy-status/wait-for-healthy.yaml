@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wait-for-ceph-healthy
+  namespace: my-ripsaw
+  labels:
+    app: wait-for-ceph-healthy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wait-for-ceph-healthy
+  template:
+    metadata:
+      labels:
+        app: wait-for-ceph-healthy
+    spec:
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: wait-for-ceph-healthy
+        image: quay.io/bengland2/wait-for-healthy-status:debug
+        command: ["/tini"]
+        args: ["cd /opt/bohica/wait-for-ceph-healthy ; python3 wait-for-ceph-healthy.py"]
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: ROOK_ADMIN_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: rook-ceph-mon
+                key: admin-secret
+        securityContext:
+          privileged: false
+        volumeMounts:
+          - mountPath: /sys/bus
+            name: sysbus
+          - mountPath: /lib/modules
+            name: libmodules
+      # if hostNetwork: false, the "rbd map" command hangs, see https://github.com/rook/rook/issues/2021
+      hostNetwork: true
+      volumes:
+        - name: sysbus
+          hostPath:
+            path: /sys/bus
+        - name: libmodules
+          hostPath:
+            path: /lib/modules
