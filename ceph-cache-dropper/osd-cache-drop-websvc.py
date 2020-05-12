@@ -1,27 +1,46 @@
 #!/usr/bin/env python
 
+# Ceph OSD cache dropping service
+# must run as privileged pod, but pods that call it
+# do not have to, and more than one workload can make use of it
+# to use it:
+# # oc create -f dropper.yml
+# # drop_pod_ip=$(oc -n openshift-storage get pod -o wide | awk '/drop/{print $1}')
+# # curl http://$drop_pid_ip:9432/drop_osd_caches
+# SUCCESS
+
 import subprocess
 import logging
 import cherrypy
+import atexit
+import os
+import sys
 
-stdout_log = open('/tmp/dropcache.log', 'w')
-
+#logging.basicConfig(filename='/tmp/dropcache.log', level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dropcache')
+logger.setLevel(logging.DEBUG)
+
+def flush_log():
+    logging.shutdown()
+
+atexit.register(flush_log)
 
 class DropOSDCache(object):
     @cherrypy.expose
-    #@cherrypy.tools.json_out()
-    #@cherrypy.tools.json_in()
+    def index(self):
+        return "Hello from DropOSDCache\n"
 
+    @cherrypy.expose
     def drop_osd_caches(self):
         try:
             result = subprocess.check_output(
-                ["/bin/sh", "drop-osd-cache-within-toolbox.sh"])
+                ["/usr/bin/ceph", "tell", "osd.*", "cache", "drop"])
+            logger.debug(result)
         except subprocess.CalledProcessError as e:
             logger.error('failed to drop cache')
             logger.exception(e)
             return 'FAIL'
-        logger.info(result)
         return 'SUCCESS'
 
 if __name__ == '__main__':
@@ -31,6 +50,12 @@ if __name__ == '__main__':
     except subprocess.CalledProcessError as e:
         logger.error('failed to source toolbox')
         logger.exception(e)
+        sys.exit(3)
+    if not os.path.exists('/etc/ceph/ceph.conf'):
+        logger.error('DID NOT FIND ceph.conf')
+        sys.exit(2)
+    logger.info('entering service')
+
     config = { 
         'global': {
             'server.socket_host': '0.0.0.0' ,
