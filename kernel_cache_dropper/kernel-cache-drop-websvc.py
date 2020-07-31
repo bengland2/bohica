@@ -7,15 +7,27 @@ import atexit
 import os
 import sys
 
+proc_fs_mountpoint = '/proc_sys_vm'
+
 logging.basicConfig(filename='/tmp/dropcache.log', level=logging.DEBUG)
 logger = logging.getLogger('dropcache')
-logger.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 
 # sanity check to make sure our k8s volume is actually
 # hooked into the /proc filesystem
 
-if not os.access('/proc_sys_vm/dirty_ratio', os.R_OK):
-    logger.error('No access to /proc filesystem, exiting')
+logger.info('debug log at /tmp/dropcache.log')
+if not os.access('%s/dirty_ratio' % proc_fs_mountpoint, os.R_OK):
+    logger.critical('No access to /proc filesystem, check volume')
+    sys.exit(1)
+if not os.access('%s/drop_caches' % proc_fs_mountpoint, os.W_OK):
+    logger.critical('No write access to /proc filesystem, run as root')
     sys.exit(1)
 
 svcPortNum=9435
@@ -39,7 +51,7 @@ class DropKernelCache(object):
         logger.info('asked for cache drop')
         os.sync()
         logger.info('completed sync call')
-        with open('/proc_sys_vm/drop_caches','a') as dcf:
+        with open('%s/drop_caches' % proc_fs_mountpoint, 'a') as dcf:
             dcf.write('3\n')
         logger.info('completed cache drop')
         return 'SUCCESS'
